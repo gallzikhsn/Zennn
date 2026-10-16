@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Space Shooter: Galaxy Defender Extended</title>
+    <!-- Tailwind CSS untuk UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Orbitron & Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: none;
+            overflow: hidden;
+            background-color: #05050a;
+            color: #ffffff;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100vh;
+            background: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
+        }
+        .neon-glow {
+            text-shadow: 0 0 10px rgba(59, 130, 246, 0.8), 0 0 20px rgba(59, 130, 246, 0.5);
+        }
+        .neon-glow-red {
+            text-shadow: 0 0 10px rgba(239, 68, 68, 0.8), 0 0 20px rgba(239, 68, 68, 0.5);
+        }
+        .neon-box {
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.3), inset 0 0 10px rgba(59, 130, 246, 0.2);
+        }
+        .ctrl-btn {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            backdrop-filter: blur(4px);
+            touch-action: manipulation;
+        }
+        .ctrl-btn:active {
+            background: rgba(59, 130, 246, 0.6);
+            transform: scale(0.92);
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen">
+
+    <!-- Canvas Game -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- UI Overlay: HUD (Top) -->
+    <div id="hud" class="absolute top-0 left-0 w-full p-3 sm:p-4 flex flex-col space-y-2 pointer-events-none z-10">
+        <div class="flex justify-between items-center w-full">
+            <div class="flex items-center space-x-2 sm:space-x-4">
+                <!-- Score Display -->
+                <div class="bg-slate-900/80 border border-blue-500/30 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl backdrop-blur-md neon-box">
+                    <span class="text-[10px] sm:text-xs text-blue-400 font-orbitron block">SKOR</span>
+                    <span id="scoreDisplay" class="text-lg sm:text-2xl font-black font-orbitron tracking-wider text-white">0</span>
+                </div>
+                <!-- Level Display -->
+                <div class="bg-slate-900/80 border border-purple-500/30 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl backdrop-blur-md">
+                    <span class="text-[10px] sm:text-xs text-purple-400 font-orbitron block">LEVEL</span>
+                    <span id="levelDisplay" class="text-base sm:text-xl font-bold font-orbitron text-purple-300">1</span>
+                </div>
+            </div>
+
+            <!-- Health & Pause Button -->
+            <div class="flex items-center space-x-3">
+                <div id="livesContainer" class="flex space-x-1 sm:space-x-2 bg-slate-900/80 border border-red-500/30 px-3 py-2 rounded-xl backdrop-blur-md">
+                    <!-- Heart Icons via JS -->
+                </div>
+                <button id="pauseBtn" class="pointer-events-auto bg-slate-800 hover:bg-slate-700 text-blue-400 border border-blue-500/40 w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center transition active:scale-95 shadow-lg">
+                    <i class="fa-solid fa-pause text-base sm:text-lg"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Level Target Score Progress Bar -->
+        <div id="targetScoreContainer" class="w-full max-w-md mx-auto bg-slate-900/80 border border-slate-700/60 rounded-xl p-2 backdrop-blur-md pointer-events-none">
+            <div class="flex justify-between text-[10px] sm:text-xs font-orbitron mb-1">
+                <span class="text-slate-400">TARGET SKOR LEVEL</span>
+                <span id="targetScoreText" class="text-yellow-400 font-bold">0 / 500</span>
+            </div>
+            <div class="w-full bg-slate-950 h-2 sm:h-2.5 rounded-full overflow-hidden border border-slate-800">
+                <div id="progressBar" class="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 h-full w-0% transition-all duration-300"></div>
+            </div>
+        </div>
+
+        <!-- Boss Health Bar Container (Hanya Muncul saat Level Boss) -->
+        <div id="bossBarContainer" class="w-full max-w-lg mx-auto bg-slate-950/90 border border-red-500/50 rounded-xl p-2.5 backdrop-blur-md hidden pointer-events-none">
+            <div class="flex justify-between text-xs font-orbitron mb-1">
+                <span class="text-red-500 font-bold tracking-wider animate-pulse"><i class="fa-solid fa-skull"></i> BOSS HEALTH</span>
+                <span id="bossHpText" class="text-red-400 font-bold">100%</span>
+            </div>
+            <div class="w-full bg-slate-900 h-3 sm:h-4 rounded-full overflow-hidden border border-red-900">
+                <div id="bossHpBar" class="bg-gradient-to-r from-red-600 to-yellow-500 h-full w-full transition-all duration-200"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Onscreen Virtual Controls (Mobile / On-screen Buttons) -->
+    <div id="touchControls" class="absolute bottom-4 left-0 w-full px-4 sm:px-8 flex justify-between items-end pointer-events-none z-20">
+        <!-- D-Pad Directional Buttons -->
+        <div class="relative w-36 h-36 sm:w-44 sm:h-44 grid grid-cols-3 grid-rows-3 gap-1 pointer-events-auto">
+            <div></div>
+            <button id="btnUp" class="ctrl-btn rounded-t-2xl flex items-center justify-center text-blue-400 text-lg sm:text-2xl"><i class="fa-solid fa-caret-up"></i></button>
+            <div></div>
+            <button id="btnLeft" class="ctrl-btn rounded-l-2xl flex items-center justify-center text-blue-400 text-lg sm:text-2xl"><i class="fa-solid fa-caret-left"></i></button>
+            <div class="bg-slate-900/40 rounded-md border border-slate-800"></div>
+            <button id="btnRight" class="ctrl-btn rounded-r-2xl flex items-center justify-center text-blue-400 text-lg sm:text-2xl"><i class="fa-solid fa-caret-right"></i></button>
+            <div></div>
+            <button id="btnDown" class="ctrl-btn rounded-b-2xl flex items-center justify-center text-blue-400 text-lg sm:text-2xl"><i class="fa-solid fa-caret-down"></i></button>
+            <div></div>
+        </div>
+
+        <!-- Action Button: Fire -->
+        <div class="pointer-events-auto flex items-center space-x-2">
+            <button id="btnFire" class="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-tr from-red-600 to-pink-500 border-2 border-red-400/80 shadow-lg shadow-red-500/30 flex flex-col items-center justify-center active:scale-90 transition font-orbitron font-bold text-white text-xs sm:text-sm">
+                <i class="fa-solid fa-crosshairs text-xl sm:text-2xl mb-1"></i>
+                <span>FIRE</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Screen: Start Menu -->
+    <div id="startScreen" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center z-30 p-6">
+        <div class="max-w-md w-full text-center space-y-6 bg-slate-900/80 border border-blue-500/30 p-8 rounded-3xl neon-box">
+            <div class="inline-block p-4 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 mb-1 animate-bounce">
+                <i class="fa-solid fa-rocket text-5xl"></i>
+            </div>
+            <h1 class="text-3xl sm:text-4xl font-black font-orbitron tracking-wider neon-glow text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">
+                GALAXY DEFENDER
+            </h1>
+            <p class="text-slate-400 text-xs sm:text-sm leading-relaxed">
+                Tingkatkan Level, Capai Target Poin, kalahkan <span class="text-red-400 font-bold">BOSS ALIEN</span> setiap 10 level, dan cegah musuh melewati <span class="text-red-500 font-bold">Garis Pertahanan Red Neon</span>!
+            </p>
+            <button id="startBtn" class="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 font-orbitron font-bold tracking-wider rounded-xl shadow-lg shadow-blue-600/30 transition transform active:scale-95 text-white flex items-center justify-center space-x-2">
+                <i class="fa-solid fa-play"></i>
+                <span>MULAI PERMAINAN</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Screen: Pause Menu -->
+    <div id="pauseScreen" class="absolute inset-0 bg-slate-950/80 backdrop-blur-md hidden flex flex-col items-center justify-center z-30 p-6">
+        <div class="max-w-sm w-full text-center space-y-6 bg-slate-900/80 border border-yellow-500/30 p-8 rounded-3xl">
+            <h2 class="text-3xl font-black font-orbitron tracking-wider text-yellow-400">GAME PAUSED</h2>
+            <div class="space-y-3">
+                <button id="resumeBtn" class="w-full py-3 bg-blue-600 hover:bg-blue-500 font-orbitron font-bold rounded-xl transition text-white">
+                    LANJUTKAN
+                </button>
+                <button id="restartFromPauseBtn" class="w-full py-3 bg-slate-800 hover:bg-slate-700 font-orbitron font-bold rounded-xl transition text-slate-300">
+                    ULANGI GAME
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Screen: Game Over -->
+    <div id="gameOverScreen" class="absolute inset-0 bg-slate-950/95 backdrop-blur-md hidden flex flex-col items-center justify-center z-30 p-6">
+        <div class="max-w-md w-full text-center space-y-6 bg-slate-900/80 border border-red-500/40 p-8 rounded-3xl shadow-2xl">
+            <div class="inline-block p-4 rounded-full bg-red-500/10 border border-red-500/30 text-red-500 mb-1">
+                <i class="fa-solid fa-skull-crossbones text-5xl"></i>
+            </div>
+            <h2 class="text-3xl sm:text-4xl font-black font-orbitron tracking-wider text-red-500 neon-glow-red">GAME OVER</h2>
+            <p id="gameOverReason" class="text-xs text-red-300 font-orbitron">Pertahanan Terbobol!</p>
+            <div class="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 grid grid-cols-2 gap-4">
+                <div>
+                    <span class="text-[10px] text-slate-400 font-orbitron block">SKOR AKHIR</span>
+                    <span id="finalScore" class="text-xl sm:text-2xl font-bold font-orbitron text-white">0</span>
+                </div>
+                <div>
+                    <span class="text-[10px] text-slate-400 font-orbitron block">LEVEL TERCAPAI</span>
+                    <span id="finalLevel" class="text-xl sm:text-2xl font-bold font-orbitron text-purple-400">1</span>
+                </div>
+            </div>
+            <button id="restartBtn" class="w-full py-4 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-500 hover:to-pink-500 font-orbitron font-bold tracking-wider rounded-xl shadow-lg shadow-red-600/30 transition transform active:scale-95 text-white flex items-center justify-center space-x-2">
+                <i class="fa-solid fa-rotate-right"></i>
+                <span>MAIN LAGI</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Script Utama Game -->
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // System Web Audio API untuk efek suara sintetis tanpa aset file luar
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'shoot') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.1);
+                } else if (type === 'hit') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(40, audioCtx.currentTime + 0.08);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.08);
+                } else if (type === 'explosion') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.3);
+                } else if (type === 'levelup') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.25);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.25);
+                }
+            } catch (e) {}
+        }
+
+        // Game State Variables
+        let gameState = 'START'; // START, PLAYING, PAUSED, GAMEOVER
+        let score = 0;
+        let level = 1;
+        let targetScore = 500;
+        let lives = 3;
+        let isBossLevel = false;
+
+        // Visual Finish / Defense Line Position (220px dari bawah layar untuk ruang tombol D-Pad)
+        const getDefenseLineY = () => canvas.height - 180;
+
+        // Controller & Key States
+        const keys = {
+            ArrowLeft: false,
+            ArrowRight: false,
+            ArrowUp: false,
+            ArrowDown: false,
+            Space: false
+        };
+
+        // Touch Drag Control
+        let touchX = null;
+        let touchY = null;
+        let isTouching = false;
+
+        // Attach Keyboard Listeners
+        window.addEventListener('keydown', e => {
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.ArrowLeft = true;
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.ArrowRight = true;
+            if (e.code === 'ArrowUp' || e.code === 'KeyW') keys.ArrowUp = true;
+            if (e.code === 'ArrowDown' || e.code === 'KeyS') keys.ArrowDown = true;
+            if (e.code === 'Space') keys.Space = true;
+        });
+
+        window.addEventListener('keyup', e => {
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.ArrowLeft = false;
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.ArrowRight = false;
+            if (e.code === 'ArrowUp' || e.code === 'KeyW') keys.ArrowUp = false;
+            if (e.code === 'ArrowDown' || e.code === 'KeyS') keys.ArrowDown = false;
+            if (e.code === 'Space') keys.Space = false;
+        });
+
+        // Touch Control pada Canvas
+        canvas.addEventListener('touchstart', e => {
+            if (e.target === canvas) {
+                isTouching = true;
+                touchX = e.touches[0].clientX;
+                touchY = e.touches[0].clientY;
+            }
+        });
+
+        canvas.addEventListener('touchmove', e => {
+            if (!isTouching || gameState !== 'PLAYING') return;
+            let currentX = e.touches[0].clientX;
+            let currentY = e.touches[0].clientY;
+            player.x += currentX - touchX;
+            player.y += currentY - touchY;
+            touchX = currentX;
+            touchY = currentY;
+        });
+
+        canvas.addEventListener('touchend', () => isTouching = false);
+
+        // Bind On-Screen UI Controller Buttons
+        function setupTouchButton(btnId, keyName) {
+            const btn = document.getElementById(btnId);
+            const startHandler = (e) => { e.preventDefault(); keys[keyName] = true; };
+            const endHandler = (e) => { e.preventDefault(); keys[keyName] = false; };
+            
+            btn.addEventListener('touchstart', startHandler);
+            btn.addEventListener('touchend', endHandler);
+            btn.addEventListener('mousedown', startHandler);
+            btn.addEventListener('mouseup', endHandler);
+            btn.addEventListener('mouseleave', endHandler);
+        }
+
+        setupTouchButton('btnUp', 'ArrowUp');
+        setupTouchButton('btnDown', 'ArrowDown');
+        setupTouchButton('btnLeft', 'ArrowLeft');
+        setupTouchButton('btnRight', 'ArrowRight');
+        setupTouchButton('btnFire', 'Space');
+
+        // Player Entity
+        const player = {
+            x: canvas.width / 2,
+            y: canvas.height - 250,
+            width: 44,
+            height: 44,
+            speed: 6.5,
+            color: '#3b82f6',
+            shootTimer: 0,
+            shootInterval: 12
+        };
+
+        // Boss Object Struct
+        let activeBoss = null;
+
+        let bullets = [];
+        let alienBullets = [];
+        let aliens = [];
+        let particles = [];
+        let stars = [];
+
+        // Stars Background
+        for (let i = 0; i < 90; i++) {
+            stars.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                size: Math.random() * 2 + 1,
+                speed: Math.random() * 1.5 + 0.5
+            });
+        }
+
+        // Particle System
+        function createExplosion(x, y, color, count = 20) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    size: Math.random() * 3.5 + 1,
+                    color: color,
+                    alpha: 1,
+                    decay: Math.random() * 0.03 + 0.015
+                });
+            }
+        }
+
+        // Hitung Target Skor Level
+        function calculateTargetScore(lvl) {
+            return lvl * 500 + Math.floor((lvl - 1) * 250);
+        }
+
+        // Spawn Wave Alien / Boss
+        function spawnAliens() {
+            aliens = [];
+            activeBoss = null;
+            isBossLevel = (level % 10 === 0);
+
+            const bossBarContainer = document.getElementById('bossBarContainer');
+            const targetScoreContainer = document.getElementById('targetScoreContainer');
+
+            if (isBossLevel) {
+                // Sembunyikan target bar biasa, aktifkan Boss Health Bar
+                bossBarContainer.classList.remove('hidden');
+                targetScoreContainer.classList.add('hidden');
+
+                let bossHp = 80 + (level * 20);
+                activeBoss = {
+                    x: canvas.width / 2,
+                    y: 110,
+                    width: 130,
+                    height: 80,
+                    hp: bossHp,
+                    maxHp: bossHp,
+                    dx: 2.5 + (level * 0.1),
+                    color: '#ef4444',
+                    shootTimer: 0,
+                    shootInterval: Math.max(20, 50 - Math.floor(level / 2))
+                };
+            } else {
+                bossBarContainer.classList.add('hidden');
+                targetScoreContainer.classList.remove('hidden');
+
+                let rows = Math.min(6, 3 + Math.floor(level / 3));
+                let cols = Math.min(8, 5 + Math.floor(level / 4));
+                let spacingX = Math.min(70, (canvas.width - 80) / cols);
+                let spacingY = 50;
+                let startX = (canvas.width - (cols * spacingX)) / 2 + (spacingX / 2);
+
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        let type = r === 0 ? 'hard' : (r === 1 ? 'medium' : 'normal');
+                        let hp = type === 'hard' ? (2 + Math.floor(level / 5)) : (type === 'medium' ? 2 : 1);
+                        let color = type === 'hard' ? '#ef4444' : (type === 'medium' ? '#a855f7' : '#10b981');
+                        
+                        aliens.push({
+                            x: startX + c * spacingX,
+                            y: 80 + r * spacingY,
+                            width: 34,
+                            height: 28,
+                            type: type,
+                            hp: hp,
+                            color: color,
+                            points: type === 'hard' ? 30 : (type === 'medium' ? 20 : 10),
+                            dx: (1 + (level * 0.2)) * (c % 2 === 0 ? 1 : -1),
+                            shootChance: 0.0015 + (level * 0.0006)
+                        });
+                    }
+                }
+            }
+        }
+
+        // Init/Reset Game Loop State
+        function initGame() {
+            score = 0;
+            level = 1;
+            lives = 3;
+            targetScore = calculateTargetScore(level);
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 250;
+            bullets = [];
+            alienBullets = [];
+            particles = [];
+            spawnAliens();
+            updateHUD();
+        }
+
+        // Refresh HTML UI Overlay
+        function updateHUD() {
+            document.getElementById('scoreDisplay').innerText = score;
+            document.getElementById('levelDisplay').innerText = level;
+            
+            // Hearts UI
+            let livesContainer = document.getElementById('livesContainer');
+            livesContainer.innerHTML = '';
+            for (let i = 0; i < lives; i++) {
+                livesContainer.innerHTML += `<i class="fa-solid fa-heart text-red-500 text-sm sm:text-base"></i>`;
+            }
+
+            // Target Progress Bar UI
+            targetScore = calculateTargetScore(level);
+            if (!isBossLevel) {
+                let prevTarget = calculateTargetScore(level - 1) || 0;
+                let currentProgress = score - prevTarget;
+                let neededProgress = targetScore - prevTarget;
+                let percentage = Math.min(100, Math.max(0, (currentProgress / neededProgress) * 100));
+                
+                document.getElementById('targetScoreText').innerText = `${score} / ${targetScore}`;
+                document.getElementById('progressBar').style.width = `${percentage}%`;
+            } else if (activeBoss) {
+                let bossPct = Math.max(0, (activeBoss.hp / activeBoss.maxHp) * 100);
+                document.getElementById('bossHpBar').style.width = `${bossPct}%`;
+                document.getElementById('bossHpText').innerText = `${Math.ceil(bossPct)}%`;
+            }
+        }
+
+        // Next Level Handler
+        function checkLevelProgression() {
+            if (!isBossLevel && score >= targetScore) {
+                level++;
+                playSound('levelup');
+                spawnAliens();
+                updateHUD();
+            }
+        }
+
+        // Logic Update State
+        function update() {
+            if (gameState !== 'PLAYING') return;
+
+            const defenseLineY = getDefenseLineY();
+
+            // Stars Movement
+            stars.forEach(star => {
+                star.y += star.speed;
+                if (star.y > canvas.height) {
+                    star.y = 0;
+                    star.x = Math.random() * canvas.width;
+                }
+            });
+
+            // Player Movement Controls
+            if (keys.ArrowLeft || keys.KeyA) player.x -= player.speed;
+            if (keys.ArrowRight || keys.KeyD) player.x += player.speed;
+            if (keys.ArrowUp || keys.KeyW) player.y -= player.speed;
+            if (keys.ArrowDown || keys.KeyS) player.y += player.speed;
+
+            // Constrain Player inside boundaries (di atas defense line)
+            if (player.x < 25) player.x = 25;
+            if (player.x > canvas.width - 25) player.x = canvas.width - 25;
+            if (player.y < 80) player.y = 80;
+            if (player.y > defenseLineY - 30) player.y = defenseLineY - 30;
+
+            // Player Automatic / Manual Shooting
+            player.shootTimer++;
+            if ((keys.Space || isTouching) && player.shootTimer >= player.shootInterval) {
+                bullets.push({
+                    x: player.x,
+                    y: player.y - 20,
+                    width: 5,
+                    height: 16,
+                    speed: 11,
+                    color: '#38bdf8'
+                });
+                playSound('shoot');
+                player.shootTimer = 0;
+            }
+
+            // Update Bullets Player
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].y -= bullets[i].speed;
+                if (bullets[i].y < 0) {
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // Update Alien Bullets
+            for (let i = alienBullets.length - 1; i >= 0; i--) {
+                alienBullets[i].y += alienBullets[i].speed;
+                
+                // Collision Alien Bullet vs Player
+                let ab = alienBullets[i];
+                if (
+                    ab.x > player.x - player.width / 2 &&
+                    ab.x < player.x + player.width / 2 &&
+                    ab.y > player.y - player.height / 2 &&
+                    ab.y < player.y + player.height / 2
+                ) {
+                    createExplosion(player.x, player.y, '#3b82f6', 25);
+                    playSound('hit');
+                    alienBullets.splice(i, 1);
+                    lives--;
+                    updateHUD();
+                    if (lives <= 0) {
+                        endGame("Pesawat Anda Hancur!");
+                    }
+                    continue;
+                }
+
+                if (alienBullets[i] && alienBullets[i].y > canvas.height) {
+                    alienBullets.splice(i, 1);
+                }
+            }
+
+            // UPDATE BOSS ALIEN (JIKA LEVEL BOSS)
+            if (isBossLevel && activeBoss) {
+                activeBoss.x += activeBoss.dx;
+                if (activeBoss.x < 80 || activeBoss.x > canvas.width - 80) {
+                    activeBoss.dx *= -1;
+                }
+
+                // Boss Shooting Patterns
+                activeBoss.shootTimer++;
+                if (activeBoss.shootTimer >= activeBoss.shootInterval) {
+                    // Tembakkan 3 peluru sekaligus (Spread Shot)
+                    alienBullets.push({ x: activeBoss.x - 30, y: activeBoss.y + 40, width: 6, height: 16, speed: 6, color: '#f43f5e' });
+                    alienBullets.push({ x: activeBoss.x, y: activeBoss.y + 40, width: 6, height: 18, speed: 7, color: '#ef4444' });
+                    alienBullets.push({ x: activeBoss.x + 30, y: activeBoss.y + 40, width: 6, height: 16, speed: 6, color: '#f43f5e' });
+                    activeBoss.shootTimer = 0;
+                }
+
+                // Player Bullets Hit Boss
+                for (let i = bullets.length - 1; i >= 0; i--) {
+                    let b = bullets[i];
+                    if (
+                        b.x > activeBoss.x - activeBoss.width / 2 &&
+                        b.x < activeBoss.x + activeBoss.width / 2 &&
+                        b.y > activeBoss.y - activeBoss.height / 2 &&
+                        b.y < activeBoss.y + activeBoss.height / 2
+                    ) {
+                        activeBoss.hp--;
+                        createExplosion(b.x, b.y, '#fbbf24', 6);
+                        playSound('hit');
+                        bullets.splice(i, 1);
+                        updateHUD();
+
+                        if (activeBoss.hp <= 0) {
+                            score += 1000 + (level * 200);
+                            createExplosion(activeBoss.x, activeBoss.y, '#ef4444', 50);
+                            playSound('explosion');
+                            activeBoss = null;
+                            level++;
+                            spawnAliens();
+                            updateHUD();
+                            break;
+                        }
+                    }
+                }
+            } 
+            // UPDATE ALIEN BIASA
+            else {
+                let edgeHit = false;
+                for (let i = 0; i < aliens.length; i++) {
+                    let alien = aliens[i];
+                    alien.x += alien.dx;
+
+                    if (alien.x < 35 || alien.x > canvas.width - 35) {
+                        edgeHit = true;
+                    }
+
+                    // Alien Random Shooting
+                    if (Math.random() < alien.shootChance) {
+                        alienBullets.push({
+                            x: alien.x,
+                            y: alien.y + alien.height / 2,
+                            width: 5,
+                            height: 14,
+                            speed: 4.5 + (level * 0.3),
+                            color: '#f43f5e'
+                        });
+                    }
+
+                    // FITUR 3: GARIS BATAS PERTAHANAN (DEFENSE LINE)
+                    // Cek jika ada alien yang berhasil menembus / menyentuh garis batas bawah
+                    if (alien.y + alien.height / 2 >= defenseLineY) {
+                        createExplosion(alien.x, defenseLineY, '#ef4444', 30);
+                        endGame("Musuh Berhasil Menembus Garis Pertahanan!");
+                        return;
+                    }
+                }
+
+                if (edgeHit) {
+                    aliens.forEach(alien => {
+                        alien.dx *= -1;
+                        alien.y += 18; // Turun mendekati garis batas
+                    });
+                }
+
+                // Player Bullets Hit Regular Aliens
+                for (let i = bullets.length - 1; i >= 0; i--) {
+                    let b = bullets[i];
+                    let bulletRemoved = false;
+
+                    for (let j = aliens.length - 1; j >= 0; j--) {
+                        let a = aliens[j];
+                        if (
+                            b.x > a.x - a.width / 2 &&
+                            b.x < a.x + a.width / 2 &&
+                            b.y > a.y - a.height / 2 &&
+                            b.y < a.y + a.height / 2
+                        ) {
+                            a.hp--;
+                            createExplosion(b.x, b.y, a.color, 8);
+                            playSound('hit');
+                            bulletRemoved = true;
+
+                            if (a.hp <= 0) {
+                                score += a.points;
+                                createExplosion(a.x, a.y, a.color, 18);
+                                playSound('explosion');
+                                aliens.splice(j, 1);
+                                checkLevelProgression();
+                            }
+                            break;
+                        }
+                    }
+
+                    if (bulletRemoved) {
+                        bullets.splice(i, 1);
+                    }
+                }
+
+                // Jika semua alien habis sebelum mencapai target skor, re-spawn alien baru di level sama
+                if (aliens.length === 0 && !isBossLevel) {
+                    spawnAliens();
+                }
+            }
+
+            // Update Particle FX
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= p.decay;
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        // Drawing Graphics Loop
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const defenseLineY = getDefenseLineY();
+
+            // Render Bintang
+            ctx.fillStyle = '#ffffff';
+            stars.forEach(star => {
+                ctx.globalAlpha = Math.random() * 0.7 + 0.3;
+                ctx.fillRect(star.x, star.y, star.size, star.size);
+            });
+            ctx.globalAlpha = 1.0;
+
+            // FITUR 3: GARIS BATAS PERTAHANAN NEON (DEFENSE / FINISH LINE)
+            ctx.save();
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#ef4444';
+            ctx.setLineDash([12, 8]); // Dashed Line Effect
+            ctx.beginPath();
+            ctx.moveTo(0, defenseLineY);
+            ctx.lineTo(canvas.width, defenseLineY);
+            ctx.stroke();
+            ctx.restore();
+
+            // Label Tulisan Garis Pertahanan
+            ctx.save();
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.6)';
+            ctx.font = '10px Orbitron';
+            ctx.fillText('DEFENSE LINE - DO NOT CROSS', 15, defenseLineY - 8);
+            ctx.restore();
+
+            // Render Particles
+            particles.forEach(p => {
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // Render Bullets Player
+            bullets.forEach(b => {
+                ctx.save();
+                ctx.fillStyle = b.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#38bdf8';
+                ctx.fillRect(b.x - b.width / 2, b.y, b.width, b.height);
+                ctx.restore();
+            });
+
+            // Render Bullets Alien
+            alienBullets.forEach(ab => {
+                ctx.save();
+                ctx.fillStyle = ab.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#f43f5e';
+                ctx.fillRect(ab.x - ab.width / 2, ab.y, ab.width, ab.height);
+                ctx.restore();
+            });
+
+            // Render Boss Alien (Jika Level 10, 20, 30...)
+            if (isBossLevel && activeBoss) {
+                ctx.save();
+                ctx.translate(activeBoss.x, activeBoss.y);
+                ctx.fillStyle = activeBoss.color;
+                ctx.shadowBlur = 25;
+                ctx.shadowColor = '#ef4444';
+
+                // Kapal Boss Raksasa
+                ctx.beginPath();
+                ctx.moveTo(0, -activeBoss.height / 2);
+                ctx.lineTo(activeBoss.width / 2, -activeBoss.height / 4);
+                ctx.lineTo(activeBoss.width / 2 + 15, activeBoss.height / 4);
+                ctx.lineTo(activeBoss.width / 3, activeBoss.height / 2);
+                ctx.lineTo(-activeBoss.width / 3, activeBoss.height / 2);
+                ctx.lineTo(-activeBoss.width / 2 - 15, activeBoss.height / 4);
+                ctx.lineTo(-activeBoss.width / 2, -activeBoss.height / 4);
+                ctx.closePath();
+                ctx.fill();
+
+                // Core Boss Bersinar
+                ctx.fillStyle = '#fbbf24';
+                ctx.beginPath();
+                ctx.arc(0, 0, 18, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            // Render Regular Aliens
+            aliens.forEach(a => {
+                ctx.save();
+                ctx.translate(a.x, a.y);
+                ctx.fillStyle = a.color;
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = a.color;
+
+                ctx.beginPath();
+                if (a.type === 'hard') {
+                    ctx.moveTo(0, -a.height / 2);
+                    ctx.lineTo(a.width / 2, a.height / 2);
+                    ctx.lineTo(0, a.height / 3);
+                    ctx.lineTo(-a.width / 2, a.height / 2);
+                } else if (a.type === 'medium') {
+                    ctx.moveTo(0, a.height / 2);
+                    ctx.lineTo(a.width / 2, -a.height / 3);
+                    ctx.lineTo(-a.width / 2, -a.height / 3);
+                } else {
+                    ctx.rect(-a.width / 2, -a.height / 2, a.width, a.height);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // Render Pesawat Player
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            ctx.fillStyle = player.color;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#3b82f6';
+
+            ctx.beginPath();
+            ctx.moveTo(0, -player.height / 2);
+            ctx.lineTo(player.width / 2, player.height / 2);
+            ctx.lineTo(0, player.height / 4);
+            ctx.lineTo(-player.width / 2, player.height / 2);
+            ctx.closePath();
+            ctx.fill();
+
+            // Engine Thruster Flame
+            ctx.fillStyle = '#60a5fa';
+            ctx.beginPath();
+            ctx.moveTo(-player.width / 4, player.height / 4);
+            ctx.lineTo(0, player.height / 2 + (Math.random() * 10 + 5));
+            ctx.lineTo(player.width / 4, player.height / 4);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // Main Loop
+        function gameLoop() {
+            update();
+            draw();
+            if (gameState === 'PLAYING') {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // Game Over Trigger
+        function endGame(reason = "Pesawat Anda Hancur!") {
+            gameState = 'GAMEOVER';
+            document.getElementById('finalScore').innerText = score;
+            document.getElementById('finalLevel').innerText = level;
+            document.getElementById('gameOverReason').innerText = reason;
+            document.getElementById('gameOverScreen').classList.remove('hidden');
+        }
+
+        // UI Button Action Listeners
+        document.getElementById('startBtn').addEventListener('click', () => {
+            document.getElementById('startScreen').classList.add('hidden');
+            gameState = 'PLAYING';
+            initGame();
+            gameLoop();
+        });
+
+        document.getElementById('pauseBtn').addEventListener('click', () => {
+            if (gameState === 'PLAYING') {
+                gameState = 'PAUSED';
+                document.getElementById('pauseScreen').classList.remove('hidden');
+            }
+        });
+
+        document.getElementById('resumeBtn').addEventListener('click', () => {
+            document.getElementById('pauseScreen').classList.add('hidden');
+            gameState = 'PLAYING';
+            gameLoop();
+        });
+
+        document.getElementById('restartFromPauseBtn').addEventListener('click', () => {
+            document.getElementById('pauseScreen').classList.add('hidden');
+            gameState = 'PLAYING';
+            initGame();
+            gameLoop();
+        });
+
+        document.getElementById('restartBtn').addEventListener('click', () => {
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            gameState = 'PLAYING';
+            initGame();
+            gameLoop();
+        });
+    </script>
+</body>
+</html>
